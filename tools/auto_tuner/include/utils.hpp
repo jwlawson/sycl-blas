@@ -44,7 +44,7 @@ inline SYCLExecutor make_sycl_executor() {
       throw std::runtime_error(e.what());
     }
   });
-  std::cout << "\nDevice: "
+  std::cout << "Device: "
             << q.get_device().get_info<cl::sycl::info::device::name>()
             << std::endl;
 

@@ -91,3 +91,37 @@ foreach(blas_tuner ${SYCL_AUTO_TUNNER_SRCS})
   )
   install(TARGETS ${tuner_exec} RUNTIME DESTINATION bin)
 endforeach()
+
+option(BLAS_BUILD_PYBINDING "Whether to build python auto-tuner bindings" ON)
+
+if(BLAS_BUILD_PYBINDING)
+  include_directories(
+    ${SYCLBLAS_INCLUDE}
+    ${SYCLBLAS_SRC}
+    ${COMPUTECPP_SDK_INCLUDE}
+    include/
+    src/
+    ${CMAKE_CURRENT_BINARY_DIR}
+  )
+
+  add_library(get_kernel_time src/get_time_for_config.cpp)
+  add_dependencies(get_kernel_time tuner_generate_def_file)
+  target_link_libraries(get_kernel_time PRIVATE tuner_kernel_lib)
+
+  find_package(SWIG REQUIRED)
+  include(UseSWIG)
+
+  find_package(PythonLibs)
+  include_directories(${PYTHON_INCLUDE_PATH})
+
+  set_property(SOURCE tuner.i
+    APPEND PROPERTY CPLUSPLUS ON
+  )
+  swig_add_library(tuner
+    LANGUAGE python
+    SOURCES tuner.i
+  )
+  swig_link_libraries(tuner
+    PUBLIC get_kernel_time
+  )
+endif()
