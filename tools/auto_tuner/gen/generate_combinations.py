@@ -98,7 +98,10 @@ class LocalGemm(GemmParams):
         return (self.tile.group_rows % self.tile.item_cols == 0
                 and self.tile.group_cols % self.tile.item_rows == 0
                 and self.tile.group_rows * self.tile.group_cols %
-                (self.cache_size / 4) == 0)
+                (self.cache_size / 4) == 0
+                and self.tile.item_rows * self.tile.group_rows *
+                self.tile.tile_rows == self.tile.item_cols *
+                self.tile.group_cols * self.tile.tile_cols)
 
 
 class NonLocalGemm(GemmParams):
@@ -246,6 +249,7 @@ def write_output_definition_file(config_list, config_source, output_file):
 
 def _get_filename(params):
     """ Return the filename generated from given configuration params. """
+
     def _mem_to_int(mem_type):
         return {'local': 0, 'no_local': 1}[mem_type]
 
