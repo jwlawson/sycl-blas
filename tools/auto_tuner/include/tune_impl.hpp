@@ -69,7 +69,10 @@ TestResultEntry tune(int r, GemmArgs<T> a) {
       event_list.back().wait_and_throw();
     }
   }
-  result.error = relative_diff(a.expected_c, a.output_c);
+  // If the error is set below zero then the kernel did not run correctly.
+  if (result.error >= 0) {
+    result.error = relative_diff(a.expected_c, a.output_c);
+  }
   return result;
 }
 

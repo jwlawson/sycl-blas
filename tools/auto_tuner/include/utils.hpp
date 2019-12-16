@@ -101,6 +101,7 @@ static void run_tune(int rep, double flop_cnt, TestResultEntry &result,
     // time in the result.
     std::cerr << "Error detected running " << result.name << "\n"
               << e.what() << "\n";
+    result.error = -1.0;
     return;
   }
   auto seconds_per_iter = runtime_secs / rep;

@@ -48,9 +48,9 @@ using MatrixContainer =
 
 struct TestResultEntry {
   std::string name;
-  double sec;
-  double gflops;
-  double error;
+  double sec = 0.0;
+  double gflops = 0.0;
+  double error = 0.0;
 
   TestResultEntry(std::string name) : name(name) {}
 
@@ -72,7 +72,7 @@ class TestResult : public std::vector<TestResultEntry> {
   void print_all() const {
     std::cout << "== Performance Results ==\n";
     for (auto &r : *this) {
-      if (r.error < 0.1) {
+      if (r.error >= 0 && r.error < 0.1) {
         r.print();
       }
     }
