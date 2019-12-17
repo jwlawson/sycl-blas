@@ -26,12 +26,12 @@
 #ifndef SYCLBLAS_TOOLS_AUTO_TUNER_GET_TIME_FOR_CONFIG_HPP_
 #define SYCLBLAS_TOOLS_AUTO_TUNER_GET_TIME_FOR_CONFIG_HPP_
 
-template<typename T>
+template <typename T>
 double get_time_for_config(int cache_size, int item_rows, int item_cols,
                            int wg_rows, int wg_cols, int tile_rows,
-                           int tile_cols, bool bank_conflict_a,
-                           bool bank_conflict_b, int mem_type,
-                           int algorithm, bool transpose_a,
+                           int tile_cols, bool double_buffer,
+                           bool bank_conflict_a, bool bank_conflict_b,
+                           int mem_type, int algorithm, bool transpose_a,
                            bool transpose_b, int m, int k, int n, int batch);
 
 #endif  // SYCLBLAS_TOOLS_AUTO_TUNER_GET_TIME_FOR_CONFIG_HPP_

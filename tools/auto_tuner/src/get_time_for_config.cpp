@@ -23,7 +23,6 @@
  *
  **************************************************************************/
 
-
 #include "get_time_for_config.hpp"
 #include "tune.hpp"
 #include "utils.hpp"
@@ -36,8 +35,9 @@ template <int Cls, typename Tile, bool DoubleBuffer, bool Nbca, bool Nbcb,
           typename Config>
 bool matches_params(int cache_size, int item_rows, int item_cols, int wg_rows,
                     int wg_cols, int tile_rows, int tile_cols,
-                    bool bank_conflict_a, bool bank_conflict_b, int mem_type,
-                    int algorithm, bool transpose_a, bool transpose_b) {
+                    bool double_buffer, bool bank_conflict_a,
+                    bool bank_conflict_b, int mem_type, int algorithm,
+                    bool transpose_a, bool transpose_b) {
   bool matches = Cls == cache_size;
   matches = matches && Tile::item_rows == item_rows;
   matches = matches && Tile::item_cols == item_cols;
@@ -47,6 +47,7 @@ bool matches_params(int cache_size, int item_rows, int item_cols, int wg_rows,
   matches = matches && Tile::tl_cols == tile_cols;
   matches = matches && Config::TransA == transpose_a;
   matches = matches && Config::TransB == transpose_b;
+  matches = matches && DoubleBuffer == double_buffer;
   matches = matches && Nbca == bank_conflict_a;
   matches = matches && Nbcb == bank_conflict_b;
   matches = matches && static_cast<int>(Config::MemoryMode) == mem_type;
@@ -76,7 +77,7 @@ TestResultEntry run_tune_for_params(int m, int k, int n, int batch) {
 
   constexpr DataType alpha = 1;
   constexpr DataType beta = 1;
-  constexpr int n_reps = 128;
+  constexpr int n_reps = 32;
 
   GemmArgs<DataType> args{m,        n,        k,   alpha, device_a,
                           lda,      device_b, ldb, beta,  host_c,
@@ -90,21 +91,26 @@ TestResultEntry run_tune_for_params(int m, int k, int n, int batch) {
 template <typename T>
 double get_time_for_config(int cache_size, int item_rows, int item_cols,
                            int wg_rows, int wg_cols, int tile_rows,
-                           int tile_cols, bool bank_conflict_a,
-                           bool bank_conflict_b, int mem_type, int algorithm,
-                           bool transpose_a, bool transpose_b, int m, int k,
-                           int n, int batch) {
-#define RETURN_IF_MATCH(TRA, TRB, MEM, ALGO, ...)                             \
-  do {                                                                        \
-    if (matches_params<__VA_ARGS__, GemmConfig<TRA, TRB, MEM, ALGO>>(         \
-            cache_size, item_rows, item_cols, wg_rows, wg_cols, tile_rows,    \
-            tile_cols, bank_conflict_a, bank_conflict_b, mem_type, algorithm, \
-            transpose_a, transpose_b)) {                                      \
-      auto result =                                                           \
-          run_tune_for_params<__VA_ARGS__, GemmConfig<TRA, TRB, MEM, ALGO>,   \
-                              T>(m, k, n, batch);                             \
-      return result.sec;                                                      \
-    }                                                                         \
+                           int tile_cols, bool double_buffer,
+                           bool bank_conflict_a, bool bank_conflict_b,
+                           int mem_type, int algorithm, bool transpose_a,
+                           bool transpose_b, int m, int k, int n, int batch) {
+  constexpr auto error_val = 100000.0;
+#define RETURN_IF_MATCH(TRA, TRB, MEM, ALGO, ...)                           \
+  do {                                                                      \
+    if (matches_params<__VA_ARGS__, GemmConfig<TRA, TRB, MEM, ALGO>>(       \
+            cache_size, item_rows, item_cols, wg_rows, wg_cols, tile_rows,  \
+            tile_cols, double_buffer, bank_conflict_a, bank_conflict_b,     \
+            mem_type, algorithm, transpose_a, transpose_b)) {               \
+      auto result =                                                         \
+          run_tune_for_params<__VA_ARGS__, GemmConfig<TRA, TRB, MEM, ALGO>, \
+                              T>(m, k, n, batch);                           \
+      if (result.error < 1.0) {                                             \
+        return error_val;                                                   \
+      } else {                                                              \
+        return result.sec;                                                  \
+      }                                                                     \
+    }                                                                       \
   } while (0)
 
 #define BENCH_PARAMS(...)                    \
@@ -115,7 +121,7 @@ double get_time_for_config(int cache_size, int item_rows, int item_cols,
 
 #include "generated_combinations.def"
 
-  return std::numeric_limits<double>::max();
+  return error_val;
 
 #undef BENCH_PARAMS
 }
@@ -123,7 +129,7 @@ double get_time_for_config(int cache_size, int item_rows, int item_cols,
 #define INSTANTIATE_FOR_TYPE(DTYPE)                                           \
   template double get_time_for_config<DTYPE>(                                 \
       int cache_size, int item_rows, int item_cols, int wg_rows, int wg_cols, \
-      int tile_rows, int tile_cols, bool bank_conflict_a,                     \
+      int tile_rows, int tile_cols, bool double_buffer, bool bank_conflict_a, \
       bool bank_conflict_b, int mem_type, int algorithm, bool transpose_a,    \
       bool transpose_b, int m, int k, int n, int batch)
 
