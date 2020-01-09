@@ -56,37 +56,12 @@ bool matches_params(int cache_size, int item_rows, int item_cols, int wg_rows,
   return matches;
 }
 
+}  // namespace
+
 template <int Cls, typename Tile, bool DoubleBuffer, bool Nbca, bool Nbcb,
           typename Config, typename DataType>
-TestResultEntry run_tune_for_params(int m, int k, int n, int batch) {
-  constexpr int seed = 42;
-  std::mt19937 rnd(seed);
-  auto host_a = get_random_vector<DataType>(k * m * batch, -1, 1, rnd);
-  auto host_b = get_random_vector<DataType>(n * k * batch, -1, 1, rnd);
-  auto host_c = get_random_vector<DataType>(m * n * batch, -1, 1, rnd);
-  auto expected_c = host_c;
-  auto result_c = host_c;
+TestResultEntry run_tune_for_params(int m, int k, int n, int batch);
 
-  const auto device_a = blas::make_sycl_iterator_buffer(host_a, host_a.size());
-  const auto device_b = blas::make_sycl_iterator_buffer(host_b, host_b.size());
-  auto device_c = blas::make_sycl_iterator_buffer(host_c, host_c.size());
-
-  const int lda = Config::TransA ? k : m;
-  const int ldb = Config::TransB ? n : k;
-  const int ldc = m;
-
-  constexpr DataType alpha = 1;
-  constexpr DataType beta = 1;
-  constexpr int n_reps = 32;
-
-  GemmArgs<DataType> args{m,        n,        k,   alpha, device_a,
-                          lda,      device_b, ldb, beta,  host_c,
-                          device_c, result_c, ldc, batch, expected_c};
-  return tune<Cls, Tile, DoubleBuffer, Nbca, Nbcb, Config, DataType>(n_reps,
-                                                                     args);
-}
-
-}  // namespace
 
 template <typename T>
 double get_time_for_config(int cache_size, int item_rows, int item_cols,

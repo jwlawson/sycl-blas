@@ -95,13 +95,25 @@ class LocalGemm(GemmParams):
 
         The requirements here should match any asserts in the kernel.
         """
+        cl_elems = self.cache_size // 4
+        db_mul = 2 if self.double_buffer else 1
+        conf_a_size = 1 if self.bank_conf_a else 0
+        conf_b_size = 1 if self.bank_conf_b else 0
+        block_a = (self.tile.group_rows * self.tile.item_rows +
+                   conf_a_size) * cl_elems
+        block_b = (cl_elems +
+                   conf_b_size) * self.tile.group_cols * self.tile.item_cols
+        local_mem = db_mul * (block_a + block_b) * 4
         return (self.tile.group_rows % self.tile.item_cols == 0
                 and self.tile.group_cols % self.tile.item_rows == 0
                 and self.tile.group_rows * self.tile.group_cols %
-                (self.cache_size / 4) == 0
+                (self.cache_size // 4) == 0
                 and self.tile.item_rows * self.tile.group_rows *
                 self.tile.tile_rows == self.tile.item_cols *
-                self.tile.group_cols * self.tile.tile_cols)
+                self.tile.group_cols * self.tile.tile_cols
+                and self.tile.group_rows * self.tile.group_cols <= 256
+                and self.cache_size >= 32 and self.cache_size <= 256
+                and local_mem <= 32768)
 
 
 class NonLocalGemm(GemmParams):
@@ -224,6 +236,30 @@ def get_gemm_configs_from_json(json_file):
     return gemm_configs
 
 
+def get_gemm_configs():
+    gemm_configs = []
+    tile_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    wg_mult = [1, 2, 3, 4, 5]
+    cl_div = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    #cl_div = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    bools = [False, True]
+    #bools = [False]
+
+    for cld, ir, ic, mult, db, bca, bcb in product(cl_div, tile_sizes,
+                                                   tile_sizes, wg_mult, bools,
+                                                   bools, bools):
+        cl_mul = mult * mult * ir * ic
+        if cl_mul % cld == 0:
+            cl = cl_mul // cld * 4
+            conf = LocalGemm(cl,
+                             _construct_tile((ir, ic), (mult * ic, mult * ir)),
+                             db, bca, bcb)
+            if conf.is_valid():
+                gemm_configs.append(conf)
+
+    return gemm_configs
+
+
 def write_output_definition_file(config_list, config_source, output_file):
     """
     Generate X-macro definition file of GEMM configurations.
@@ -341,7 +377,7 @@ def main():
         action='store_true',
         help='Write list of source files that would be generated')
     args = parser.parse_args()
-    gemm_configs = get_gemm_configs_from_json(args.config)
+    gemm_configs = get_gemm_configs()
 
     if args.source_dir:
         if args.list_files:

@@ -23,26 +23,47 @@
  *
  **************************************************************************/
 
+#include "gemm_tuner.hpp"
+#include <CL/sycl.hpp>
 #include <cstdlib>
 
-#include "gemm_tuner.hpp"
+#include "csv.h"
 
-int main(int argc, char *argv[]) {
-  if (argc != 6) {
-    std::cerr << "Usage: " << argv[0] << " M K N bs rep" << std::endl;
+int sleep_for_millis = 0;
+
+int main(int argc, char* argv[]) {
+  if (argc < 2) {
+    std::cerr << "Usage: " << argv[0] << " csv_filename [num_reps] [sleep]"
+              << std::endl;
     return -1;
   }
 
-  const bool transA = false;
-  const bool transB = false;
+  char const* const csv_file = argv[1];
 
-  const int seed = 42;
-  const int m = std::atoi(argv[1]);
-  const int k = std::atoi(argv[2]);
-  const int n = std::atoi(argv[3]);
-  const int batch_size = std::atoi(argv[4]);
-  const int rep = std::atoi(argv[5]);
-  run_tune_gemm<transA, transB, float>(seed, m, k, n, batch_size, rep);
+  constexpr int seed = 42;
+  int num_reps = 16;
+  if (argc > 2) {
+    num_reps = std::atoi(argv[2]);
+  }
+  if (argc > 3) {
+    sleep_for_millis = std::atoi(argv[3]);
+  }
 
+  io::CSVReader<6> reader(csv_file);
+  reader.read_header(io::ignore_extra_column, "TransposeLHS", "TransposeRHS",
+                     "M", "N", "K", "batch");
+  char* trans_lhs_str;
+  char* trans_rhs_str;
+  int m;
+  int n;
+  int k;
+  int batch;
+  while (reader.read_row(trans_lhs_str, trans_rhs_str, m, n, k, batch)) {
+    bool transpose_lhs = trans_lhs_str[0] == 't';
+    bool transpose_rhs = trans_rhs_str[0] == 't';
+    if (!transpose_lhs and !transpose_rhs) {
+      run_tune_gemm<false, false, float>(seed, m, k, n, batch, num_reps);
+    }
+  }
   return 0;
 }

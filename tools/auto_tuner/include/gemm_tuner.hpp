@@ -113,12 +113,11 @@ void run_tune_gemm(int seed, int m, int k, int n, int batch_size, int rep) {
     results.push_back(result);
   }
 
-#define BENCH_PARAMS(MEM, ALG, ...)                      \
-  do {                                                                       \
-    auto result =                                                            \
-        tune<__VA_ARGS__, GemmConfig<TransA, TransB, MEM, ALG>>( \
-            rep, args);                                                      \
-    results.push_back(result);                                               \
+#define BENCH_PARAMS(MEM, ALG, ...)                                         \
+  do {                                                                      \
+    auto result =                                                           \
+        tune<__VA_ARGS__, GemmConfig<TransA, TransB, MEM, ALG>>(rep, args); \
+    results.push_back(result);                                              \
   } while (0);
 
 #include "generated_combinations.def"
@@ -126,6 +125,10 @@ void run_tune_gemm(int seed, int m, int k, int n, int batch_size, int rep) {
 #undef BENCH_PARAMS
 
   std::sort(results.begin(), results.end());
-  results.print_all();
+  for (auto &result : results) {
+    std::cout << result.gflops << ";" << result.name << ";" << result.sec << ";"
+              << result.error << ";" << m << ";" << k << ";" << n << ";"
+              << batch_size << "\n";
+  }
   get_sycl_executor().get_policy_handler().wait();
 }

@@ -55,8 +55,8 @@ struct TestResultEntry {
   TestResultEntry(std::string name) : name(name) {}
 
   void print() const {
-    std::cout << gflops << " gflops: " << name << " - Time: " << sec
-              << " ms, Error: " << error << "\n";
+    std::cout << gflops << ";" << name << ";" << sec
+              << ";" << error << "\n";
   }
 
   bool operator<(const TestResultEntry &other) const {
@@ -70,9 +70,8 @@ struct TestResultEntry {
 class TestResult : public std::vector<TestResultEntry> {
  public:
   void print_all() const {
-    std::cout << "== Performance Results ==\n";
     for (auto &r : *this) {
-      if (r.error >= 0 && r.error < 0.1) {
+      if (r.error >= 0) {
         r.print();
       }
     }

@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.12)
 set(SYCLBLAS_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/../../include)
 
 
@@ -50,19 +51,31 @@ add_custom_command(OUTPUT ${tuner_kernel_srcs}
 )
 add_custom_target(tuner_generate_kernels DEPENDS ${tuner_kernel_srcs})
 
-add_library(tuner_kernel_lib ${tuner_kernel_srcs})
-target_include_directories(tuner_kernel_lib PRIVATE
-  ${SYCLBLAS_INCLUDE}
-  ${SYCLBLAS_SRC}
-  ${COMPUTECPP_SDK_INCLUDE}
-  include/
-  ${CMAKE_CURRENT_BINARY_DIR}
-)
-add_dependencies(tuner_kernel_lib tuner_generate_kernels)
-add_sycl_to_target(
-  TARGET tuner_kernel_lib
-  SOURCES ${tuner_kernel_srcs}
-)
+set(_max_kernels_per_lib 128)
+set(_curr_index 0)
+list(LENGTH tuner_kernel_srcs _total_kernels)
+add_library(tuner_kernel_lib INTERFACE)
+
+while(_curr_index LESS _total_kernels)
+  math(EXPR _next_index "${_curr_index} + ${_max_kernels_per_lib}")
+  list(SUBLIST tuner_kernel_srcs ${_curr_index} ${_max_kernels_per_lib} _sub_tuner_srcs)
+  set(_lib_name tuner_kernel_lib_${_curr_index})
+  add_library(${_lib_name} ${_sub_tuner_srcs})
+  target_include_directories(${_lib_name} PRIVATE
+    ${SYCLBLAS_INCLUDE}
+    ${SYCLBLAS_SRC}
+    ${COMPUTECPP_SDK_INCLUDE}
+    include/
+    ${CMAKE_CURRENT_BINARY_DIR}
+  )
+  add_dependencies(${_lib_name} tuner_generate_kernels)
+  add_sycl_to_target(
+    TARGET ${_lib_name}
+    SOURCES ${_sub_tuner_srcs}
+  )
+  target_link_libraries(tuner_kernel_lib INTERFACE ${_lib_name})
+  set(_curr_index ${_next_index})
+endwhile()
 
 set(SYCL_AUTO_TUNNER_SRCS
   src/tune_nn.cpp
@@ -104,7 +117,7 @@ if(BLAS_BUILD_PYBINDING)
     ${CMAKE_CURRENT_BINARY_DIR}
   )
 
-  add_library(get_kernel_time src/get_time_for_config.cpp)
+  add_library(get_kernel_time src/get_time_for_config.cpp src/run_tune_test.cpp)
   add_dependencies(get_kernel_time tuner_generate_def_file)
   target_link_libraries(get_kernel_time PRIVATE tuner_kernel_lib)
 
